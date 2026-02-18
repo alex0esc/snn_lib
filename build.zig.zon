@@ -1,0 +1,13 @@
+.{
+    .name = .snn_lib,
+    .version = "0.0.0",
+    .minimum_zig_version = "0.16.0-dev.2565+684032671",
+    .fingerprint = 0x91304fe410a6240c,
+    .dependencies = .{
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
