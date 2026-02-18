@@ -1,14 +1,51 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
-pub fn build(b: *std.Build) void {
-    
+
+pub fn build(b: *std.Build) void {    
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-        const mod = b.addModule("snn_lib", .{
-            .root_source_file = b.path("src/root.zig"),
-            .target = target,
-    });
 
+    //c libraries
+    const cmake_configure = b.addSystemCommand(&.{"cmake",
+        "-S", "OpenBLAS",
+        "-B", "OpenBLAS/build",
+        "-G", "Ninja",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DNOFORTRAN=1",
+        "-DCMAKE_C_COMPILER=clang",
+        "-DCMAKE_ASM_COMPILER=clang",
+        "-DCMAKE_C_FLAGS=-w",        
+        "-DCMAKE_ASM_FLAGS=-w"});
+    const cmake_build = b.addSystemCommand(&.{"cmake",
+        "--build", "OpenBLAS/build", "--parallel"});
+    cmake_build.step.dependOn(&cmake_configure.step);
+
+    const step = b.step("cmake", "Run cmake and build c code");
+    step.dependOn(&cmake_build.step);
+
+    //openblas (you may be need to change settings according to your system)
+    //var blas_path: []const u8 = switch(builtin.os.tag) {
+    //    .windows => "OpenBLAS/build/lib/openblas.lib",  
+    //    .linux => "OpenBLAS/build/lib/libopenblas.a",
+    //    .macos => "OpenBLAS/build/lib/openblas.a",
+    //    else => {
+    //        std.log.err("Your OS is not supported!", .{});
+    //        return;
+    //    },
+    //};
+
+    //main librarie
+    const mod = b.addModule("snn_lib", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+    });
+    mod.addLibraryPath(b.path("OpenBLAS/build/lib"));
+    mod.addIncludePath(b.path("OpenBLAS"));
+    mod.addIncludePath(b.path("OpenBLAS/build"));
+    
+    //executable
     const exe = b.addExecutable(.{
         .name = "snn_lib",
         .root_module = b.createModule(.{
@@ -21,21 +58,22 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
+
     b.installArtifact(exe);
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);
     run_cmd.step.dependOn(b.getInstallStep());
-
+    
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-
+    
     const test_runner: std.Build.Step.Compile.TestRunner = .{
         .path = b.path("src/test_runner.zig"),
         .mode = @enumFromInt(0),
     };
-
+    
     const mod_tests = b.addTest(.{
         .root_module = mod,
         .test_runner = test_runner,
@@ -53,5 +91,4 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
-
 }
