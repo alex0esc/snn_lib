@@ -10,7 +10,6 @@ pub fn build(b: *std.Build) void {
     const cmake_configure = b.addSystemCommand(&.{"cmake",
         "-S", "OpenBLAS",
         "-B", "OpenBLAS/build",
-        "-G", "Ninja",
         "-DCMAKE_BUILD_TYPE=Release",
         "-DBUILD_SHARED_LIBS=OFF",
         "-DNOFORTRAN=1",
@@ -18,23 +17,10 @@ pub fn build(b: *std.Build) void {
         "-DCMAKE_ASM_COMPILER=clang",
         "-DCMAKE_C_FLAGS=-w",        
         "-DCMAKE_ASM_FLAGS=-w"});
-    const cmake_build = b.addSystemCommand(&.{"cmake",
-        "--build", "OpenBLAS/build", "--parallel"});
+    const cmake_build = b.addSystemCommand(&.{"cmake", "--build", "OpenBLAS/build", "--parallel"});
     cmake_build.step.dependOn(&cmake_configure.step);
-
-    const step = b.step("cmake", "Run cmake and build c code");
-    step.dependOn(&cmake_build.step);
-
-    //openblas (you may be need to change settings according to your system)
-    //var blas_path: []const u8 = switch(builtin.os.tag) {
-    //    .windows => "OpenBLAS/build/lib/openblas.lib",  
-    //    .linux => "OpenBLAS/build/lib/libopenblas.a",
-    //    .macos => "OpenBLAS/build/lib/openblas.a",
-    //    else => {
-    //        std.log.err("Your OS is not supported!", .{});
-    //        return;
-    //    },
-    //};
+    const cmake_step = b.option(bool, "cmake", "Run cmake for c dependencies") orelse false;
+    
 
     //main librarie
     const mod = b.addModule("snn_lib", .{
@@ -58,7 +44,9 @@ pub fn build(b: *std.Build) void {
         }),
     });
 
-
+    if(cmake_step) 
+        exe.step.dependOn(&cmake_build.step);
+    
     b.installArtifact(exe);
     const run_step = b.step("run", "Run the app");
     const run_cmd = b.addRunArtifact(exe);

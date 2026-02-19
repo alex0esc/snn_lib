@@ -3,7 +3,6 @@ const builtin = @import("builtin");
 const Clock = std.Io.Clock;
 
 
-
 pub fn main(init: std.process.Init) !void {
     const test_count = builtin.test_functions.len;
     if(test_count <= 0)
